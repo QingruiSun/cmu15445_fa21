@@ -14,16 +14,35 @@
 
 namespace bustub {
 
-LRUReplacer::LRUReplacer(size_t num_pages) {}
+LRUReplacer::LRUReplacer(size_t num_pages) : num_pages_(num_pages) {}
 
 LRUReplacer::~LRUReplacer() = default;
 
-bool LRUReplacer::Victim(frame_id_t *frame_id) { return false; }
+bool LRUReplacer::Victim(frame_id_t *frame_id) {
+  if (frame_list_.empty()) {
+    return false;
+  }
+  *frame_id = frame_list_.front();
+  frame_list_.pop_front();
+  frame_map_.erase(*frame_id);
+  return true;
+}
 
-void LRUReplacer::Pin(frame_id_t frame_id) {}
+void LRUReplacer::Pin(frame_id_t frame_id) {
+  if (frame_map_.find(frame_id) != frame_map_.end()) {
+    frame_list_.erase(frame_map_[frame_id]);
+    frame_map_.erase(frame_id);
+  }
+}
 
-void LRUReplacer::Unpin(frame_id_t frame_id) {}
+void LRUReplacer::Unpin(frame_id_t frame_id) {
+  if (frame_list_.size() >= num_pages_) {
+    return;
+  }
+  frame_list_.push_front(frame_id);
+  frame_map_[frame_id] = frame_list_.begin();
+}
 
-size_t LRUReplacer::Size() { return 0; }
+size_t LRUReplacer::Size() { return frame_list_.size(); }
 
 }  // namespace bustub

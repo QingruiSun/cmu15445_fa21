@@ -49,11 +49,28 @@ BufferPoolManagerInstance::~BufferPoolManagerInstance() {
 
 bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   // Make sure you call DiskManager::WritePage!
-  return false;
+  if (page_table_.find(page_id) == page_table_.end()) {
+    return true;
+  }
+  frame_id_t frame_id = page_table_[page_id];
+  Page *page = &pages_[frame_id];
+  if (page->GetPinCount() > 0) {
+    return false;
+  }
+  if (page->IsDirty()) {
+    disk_manager_->WritePage(page_id, page->GetData());
+  }
+  return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
+  for (size_t i = 0; i < pool_size_; ++i) {
+    Page *page = &pages_[i];
+    if ((page->GetPinCount() == 0) && (page->IsDirty())) {
+      disk_manager_->WritePage(page->GetPageId(), page->GetData());
+    }
+  }
 }
 
 Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
@@ -62,7 +79,24 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   // 2.   Pick a victim page P from either the free list or the replacer. Always pick from the free list first.
   // 3.   Update P's metadata, zero out memory and add P to the page table.
   // 4.   Set the page ID output parameter. Return a pointer to P.
-  return nullptr;
+  page_id_t allocated_page_id = AllocatePage();
+  if (free_list_.empty() && (replacer_->Size() == 0)) {
+    return nullptr;
+  }
+  frame_id_t frame_id;
+  if (free_list_.empty()) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else {
+    replacer_->Victim(&frame_id);
+  }
+  Page *page = &pages_[frame_id];
+  page->ResetMemory();
+  page->page_id_ = allocated_page_id;
+  page->pin_count_ = 1;
+  page_table_.insert(std::make_pair(allocated_page_id, frame_id));
+  *page_id = allocated_page_id;
+  return page;
 }
 
 Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
@@ -73,7 +107,30 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   // 2.     If R is dirty, write it back to the disk.
   // 3.     Delete R from the page table and insert P.
   // 4.     Update P's metadata, read in the page content from disk, and then return a pointer to P.
-  return nullptr;
+  frame_id_t frame_id;
+  Page *page;
+  if (page_table_.find(page_id) != page_table_.end()) {
+    frame_id = page_table_[page_id];
+    page = &pages_[frame_id];
+    page->pin_count_++;
+    return page;
+  }
+  if (!free_list_.empty()) {
+    frame_id = free_list_.front();
+    free_list_.pop_front();
+  } else {
+    replacer_->Victim(&frame_id);
+  }
+  page = &pages_[frame_id];
+  if (page->IsDirty()) {
+    disk_manager_->WritePage(page->GetPageId(), page->GetData());
+  }
+  page_table_.erase(frame_id);
+  page_table_.insert(std::make_pair(frame_id, page_id));
+  page->page_id_ = page_id;
+  page->pin_count_ = 1;
+  disk_manager_->ReadPage(page_id, page->GetData());
+  return page;
 }
 
 bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
@@ -82,10 +139,38 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
   // 1.   If P does not exist, return true.
   // 2.   If P exists, but has a non-zero pin-count, return false. Someone is using the page.
   // 3.   Otherwise, P can be deleted. Remove P from the page table, reset its metadata and return it to the free list.
-  return false;
+  DeallocatePage(page_id);
+  if (page_table_.find(page_id) == page_table_.end()) {
+    return true;
+  }
+  frame_id_t frame_id = page_table_[page_id];
+  Page *page = &pages_[frame_id];
+  if (page->GetPinCount() > 0) {
+    return false;
+  }
+  page_table_.erase(page_id);
+  page->page_id_ = INVALID_PAGE_ID;
+  page->is_dirty_ = false;
+  page->pin_count_ = 0;
+  free_list_.push_back(frame_id);
+  return true;
 }
 
-bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) { return false; }
+bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
+  if (page_table_.find(page_id) == page_table_.end()) {
+    return false;
+  }
+  frame_id_t frame_id = page_table_[page_id];
+  Page *page = &pages_[frame_id];
+  if (is_dirty) {
+    page->is_dirty_ = is_dirty;
+  }
+  if (page->pin_count_ <= 0) {
+    return false;
+  }
+  page->pin_count_--;
+  return true;
+}
 
 page_id_t BufferPoolManagerInstance::AllocatePage() {
   const page_id_t next_page_id = next_page_id_;
