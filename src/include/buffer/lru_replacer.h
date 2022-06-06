@@ -51,6 +51,7 @@ class LRUReplacer : public Replacer {
   size_t num_pages_;
   std::list<frame_id_t> frame_list_;
   std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> frame_map_;
+  std::mutex lru_replacer_latch_;
 };
 
 }  // namespace bustub
