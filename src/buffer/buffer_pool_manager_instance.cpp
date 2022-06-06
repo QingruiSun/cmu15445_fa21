@@ -60,22 +60,21 @@ bool BufferPoolManagerInstance::FlushPgImp(page_id_t page_id) {
   }
   if (page->IsDirty()) {
     disk_manager_->WritePage(page_id, page->GetData());
+    page->is_dirty_ = false;
   }
-  page->is_dirty_ = false;
   return true;
 }
 
 void BufferPoolManagerInstance::FlushAllPgsImp() {
   // You can do it!
   std::scoped_lock scoped_latch(latch_);
-  for (auto iter = page_table_.begin(); iter != page_table_.end(); ++iter) {
-    Page *page = &pages_[iter->second];
+  for (auto &iter : page_table_) {
+    Page *page = &pages_[iter.second];
     if (page->GetPinCount() == 0) {
       if (page->IsDirty()) {
-        disk_manager_->WritePage(iter->first, page->GetData());
+        disk_manager_->WritePage(iter.first, page->GetData());
+        page->is_dirty_ = false;
       }
-      replacer_->Unpin(iter->second);
-      page_table_.erase(iter->first);
     }
   }
 }
@@ -126,7 +125,7 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
   Page *page;
   if (page_table_.find(page_id) != page_table_.end()) {
     frame_id = page_table_[page_id];
-    page = &pages_[frame_id];
+    page = pages_ + frame_id;
     if (page->GetPinCount() == 0) {
       replacer_->Pin(frame_id);
     }
@@ -141,12 +140,13 @@ Page *BufferPoolManagerInstance::FetchPgImp(page_id_t page_id) {
     page = pages_ + frame_id;
     if (page->IsDirty()) {
       disk_manager_->WritePage(page->GetPageId(), page->GetData());
+      page->is_dirty_ = false;
     }
     page_table_.erase(page->GetPageId());
   } else {
-    page = &pages_[frame_id];
     frame_id = free_list_.front();
     free_list_.pop_front();
+    page = pages_ + frame_id;
   }
   page_table_.insert(std::make_pair(page_id, frame_id));
   page->page_id_ = page_id;
@@ -167,16 +167,16 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
     return true;
   }
   frame_id_t frame_id = page_table_[page_id];
-  Page *page = &pages_[frame_id];
+  Page *page = pages_ + frame_id;
   if (page->GetPinCount() > 0) {
     return false;
   }
   if (page->IsDirty()) {
     disk_manager_->WritePage(page->GetPageId(), page->GetData());
+    page->is_dirty_ = false;
   }
   page_table_.erase(page_id);
   page->page_id_ = INVALID_PAGE_ID;
-  page->is_dirty_ = false;
   page->pin_count_ = 0;
   free_list_.push_back(frame_id);
   return true;
@@ -189,11 +189,11 @@ bool BufferPoolManagerInstance::UnpinPgImp(page_id_t page_id, bool is_dirty) {
   }
   frame_id_t frame_id = page_table_[page_id];
   Page *page = &pages_[frame_id];
+  if (page->GetPinCount() <= 0) {
+    return false;
+  }
   if (is_dirty) {
     page->is_dirty_ = is_dirty;
-  }
-  if (page->pin_count_ <= 0) {
-    return false;
   }
   page->pin_count_--;
   if (page->pin_count_ == 0) {
