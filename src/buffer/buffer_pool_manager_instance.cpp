@@ -107,6 +107,7 @@ Page *BufferPoolManagerInstance::NewPgImp(page_id_t *page_id) {
   page->ResetMemory();
   page->page_id_ = allocated_page_id;
   page->pin_count_ = 1;
+  page->is_dirty_ = true;
   page_table_.insert(std::make_pair(allocated_page_id, frame_id));
   *page_id = allocated_page_id;
   return page;
