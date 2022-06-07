@@ -171,6 +171,7 @@ bool BufferPoolManagerInstance::DeletePgImp(page_id_t page_id) {
     page->is_dirty_ = false;
   }
   page_table_.erase(page_id);
+  replacer_->Pin(frame_id);
   DeallocatePage(page_id);
   page->page_id_ = INVALID_PAGE_ID;
   page->pin_count_ = 0;
