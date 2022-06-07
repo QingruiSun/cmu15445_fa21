@@ -12,6 +12,8 @@
 
 #pragma once
 
+#include <mutex>  // NOLINT
+
 #include "buffer/buffer_pool_manager.h"
 #include "buffer/buffer_pool_manager_instance.h"
 #include "recovery/log_manager.h"
@@ -95,5 +97,6 @@ class ParallelBufferPoolManager : public BufferPoolManager {
   uint32_t allocate_index_;
   /** Represents buffer pool manager instances in parallel buffer pool manager. */
   BufferPoolManagerInstance **bpms_;
+  std::mutex latch_;
 };
 }  // namespace bustub
