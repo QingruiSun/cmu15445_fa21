@@ -27,6 +27,7 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
                                      const KeyComparator &comparator, HashFunction<KeyType> hash_fn)
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   //  implement me!
+    buffer_pool_manager_->NewPage(&directory_page_id_);
 }
 
 /*****************************************************************************
@@ -46,22 +47,24 @@ uint32_t HASH_TABLE_TYPE::Hash(KeyType key) {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 inline uint32_t HASH_TABLE_TYPE::KeyToDirectoryIndex(KeyType key, HashTableDirectoryPage *dir_page) {
-  return 0;
+  return hash_fn.GetHash(key) & dir_page->GetGlobalDepthMask();
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 inline uint32_t HASH_TABLE_TYPE::KeyToPageId(KeyType key, HashTableDirectoryPage *dir_page) {
-  return 0;
+  return dir_page->GetBucketPageId(KeyToDirectoryIndex(key, dir_page));
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 HashTableDirectoryPage *HASH_TABLE_TYPE::FetchDirectoryPage() {
-  return nullptr;
+  Page *dir_page =  buffer_pool_manager_->FetchPage(directory_page_id_);
+  return reinterpret_cast<HashTableDirectoryPage *>(dir_page->GetData());
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 HASH_TABLE_BUCKET_TYPE *HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_id) {
-  return nullptr;
+  Page *bucket_page = buffer_pool_manager_->FetchPage(bucket_page_id);
+  return reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(bucket_page->GetData());
 }
 
 /*****************************************************************************
@@ -69,7 +72,13 @@ HASH_TABLE_BUCKET_TYPE *HASH_TABLE_TYPE::FetchBucketPage(page_id_t bucket_page_i
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std::vector<ValueType> *result) {
-  return false;
+  auto dir_page = buffer_pool_manager_->FetchPage(directory_page_id_);
+  uint32_t bucket_page_id = KeyToPageId(key, dir_page);
+  HASH_TABLE_BUCKET_TYPE *bucket_page = FetchBucketPage(bucket_page_id);
+  bool matched = bucket_page->GetValue(key, comparator_, result);
+  buffer_pool_manager_->UnpinPage(bucket_page_id, false);
+  buffer_pool_manager_->UnpinPage(directory_page_id_, false);
+  return matched;  
 }
 
 /*****************************************************************************
@@ -77,13 +86,40 @@ bool HASH_TABLE_TYPE::GetValue(Transaction *transaction, const KeyType &key, std
  *****************************************************************************/
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  return false;
+  auto dir_page = buffer_pool_manager_->FetchPage(directory_page_id_);
+  uint32_t bucket_page_id = KeyToPageId(key, dir_page);
+  HASH_TABLE_BUCKET_TYPE *bucket_page = FetchBucketPage(bucket_page_id);
+  bool succeed = false;
+  if (!bucket_page->IsFull()) {
+	  succeed = bucket_page->Insert(key, value, comparator_);
+	  buffer_pool_manager_->UnpinPage(directory_page_id_);
+	  buffer_pool_manager_->UnpinPage(bucket_page_id);
+	  return succeed;
+  }
+  succeed = SplitInsert(transaction, key, value);
+  buffer
+  return succeed;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, const ValueType &value) {
-  return false;
+	auto dir_page = buffer_pool_manager_->FetchPage(directory_page_id_);
+	uint32_t bucket_page_id = KeyToPageId(key, dir_page);
+	HASH_TABLE_BUCKET_TYPE *old_bucket_page = FetchBucketPage(bucket_page_id);
+	uint32_t dir_index = KeyToDirectoryIndex(key, dir_page);
+	if (dir_page->GetLocalDepth(dir_index) < dir_page->GetGlobalDepth()) {
+		uint32_t first_bucket_idx = dir_page->GetLocalHighBit(dir_index);
+		uint32_t second_bucket_idx = 1u << (dir_page->GetGlobalDepth() - dir_page->GetLocalDepth(dir_index) - 1);
+		page_id_t new_bucket_page_id;
+		HASH_TABLE_BUCKET_TYPE *new_bucket_page = buffer_pool_manager_->NewPage(&new_bucket_page_id);
+
+	}
 }
+
+template <typename KeyType, typename ValueType, typename KeyComparator>
+void HASH_TABLE_TYPE::SplitReHash(Transac)
+
+
 
 /*****************************************************************************
  * REMOVE
