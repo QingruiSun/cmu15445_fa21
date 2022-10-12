@@ -16,6 +16,10 @@
 #include "common/logger.h"
 
 namespace bustub {
+void HashTableDirectoryPage::Init() {
+	global_depth_ = 0;
+}
+	
 page_id_t HashTableDirectoryPage::GetPageId() const { return page_id_; }
 
 void HashTableDirectoryPage::SetPageId(bustub::page_id_t page_id) { page_id_ = page_id; }
@@ -30,6 +34,10 @@ uint32_t HashTableDirectoryPage::GetGlobalDepthMask() {
 	return (1u << global_depth_) - 1;
 }
 
+uint32_t HashTableDirectoryPage::GetLocalDepthMask(uint32_t bucket_idx) {
+	return (1u << local_depths_[bucket_idx]) - 1;
+}
+
 void HashTableDirectoryPage::IncrGlobalDepth() { ++global_depth_; }
 
 void HashTableDirectoryPage::DecrGlobalDepth() { --global_depth_; }
@@ -40,6 +48,14 @@ page_id_t HashTableDirectoryPage::GetBucketPageId(uint32_t bucket_idx) {
 
 void HashTableDirectoryPage::SetBucketPageId(uint32_t bucket_idx, page_id_t bucket_page_id) {
 	bucket_page_ids_[bucket_idx] = bucket_page_id;
+}
+
+uint32_t HashTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) {
+	return bucket_idx ^ GetLocalHighBit(bucket_idx);
+}
+
+uint32_t HashTableDirectoryPage::GetMergeImageIndex(uint32_t bucket_idx) {
+	return bucket_idx ^ (1u << local_depths_[bucket_idx]);
 }
 
 uint32_t HashTableDirectoryPage::Size() { return 1u << global_depth_; }
@@ -71,7 +87,7 @@ void HashTableDirectoryPage::DecrLocalDepth(uint32_t bucket_idx) {
 }
 
 uint32_t HashTableDirectoryPage::GetLocalHighBit(uint32_t bucket_idx) {
-	return bucket_idx & ~((1 << (global_depth_ - local_depths_[bucket_idx])) - 1);
+	return 1u << local_depths_[bucket_idx];
 }
 
 /**
