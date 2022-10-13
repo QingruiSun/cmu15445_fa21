@@ -227,9 +227,14 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
 		buffer_pool_manager_->UnpinPage(directory_page_id_, true);
 		return;
 	}
-	dir_page->SetBucketPageId(bucket_index, merge_bucket_page_id);
-	dir_page->DecrLocalDepth(bucket_index);
-	dir_page->DecrLocalDepth(merge_index);
+	for (uint32_t i = 0; i < dir_page->Size(); ++i) {
+		if (dir_page->GetBucketPageId(i) == bucket_page_id) {
+			dir_page->SetBucketPageId(i, merge_bucket_page_id);
+			dir_page->DecrLocalDepth(i);
+		} else if (dir_page->GetBucketPageId(i) == merge_bucket_page_id) {
+			dir_page->DecrLocalDepth(i);
+		}
+	}
 	if (dir_page->CanShrink()) {
 		dir_page->DecrGlobalDepth();
 	}

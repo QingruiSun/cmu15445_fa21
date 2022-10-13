@@ -47,7 +47,6 @@ bool HASH_TABLE_BUCKET_TYPE::Insert(KeyType key, ValueType value, KeyComparator 
 			return false;
 		}
 	}
-	printf("insert index: %u\n", insert_index);
 	array_[insert_index] = std::make_pair(key, value);
 	SetOccupied(insert_index);
 	SetReadable(insert_index);
@@ -85,7 +84,7 @@ void HASH_TABLE_BUCKET_TYPE::RemoveAt(uint32_t bucket_idx) {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BUCKET_TYPE::IsOccupied(uint32_t bucket_idx) const {
-  return (occupied_[bucket_idx / 8] & (1 << (bucket_idx % 8))) == 1;
+  return (occupied_[bucket_idx / 8] & (1 << (bucket_idx % 8))) > 0;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
@@ -95,7 +94,7 @@ void HASH_TABLE_BUCKET_TYPE::SetOccupied(uint32_t bucket_idx) {
 
 template <typename KeyType, typename ValueType, typename KeyComparator>
 bool HASH_TABLE_BUCKET_TYPE::IsReadable(uint32_t bucket_idx) const {
-  return (readable_[bucket_idx / 8] & (1 << (bucket_idx % 8))) == 1;
+  return (readable_[bucket_idx / 8] & (1 << (bucket_idx % 8))) > 0;
 }
 
 template <typename KeyType, typename ValueType, typename KeyComparator>

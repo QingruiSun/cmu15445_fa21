@@ -55,14 +55,14 @@ uint32_t HashTableDirectoryPage::GetSplitImageIndex(uint32_t bucket_idx) {
 }
 
 uint32_t HashTableDirectoryPage::GetMergeImageIndex(uint32_t bucket_idx) {
-	return bucket_idx ^ (1u << local_depths_[bucket_idx]);
+	return bucket_idx ^ (1u << (local_depths_[bucket_idx] - 1));
 }
 
 uint32_t HashTableDirectoryPage::Size() { return 1u << global_depth_; }
 
 bool HashTableDirectoryPage::CanShrink() {
 	bool can_shrink = true;
-	for (uint32_t i = 0; i < DIRECTORY_ARRAY_SIZE; ++i) {
+	for (uint32_t i = 0; i < Size(); ++i) {
 		if (local_depths_[i] >= global_depth_) {
 			can_shrink = false;
 		}
