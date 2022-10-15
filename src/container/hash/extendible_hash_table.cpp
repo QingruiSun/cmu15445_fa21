@@ -40,13 +40,13 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
   auto page = buffer_pool_manager_->NewPage(&directory_page_id_);
   auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(page->GetData());
   page_id_t first_bucket_page_id;
-  buffer_pool_manager_->NewPage(&first_bucket_page_id);
+  assert(buffer_pool_manager_->NewPage(&first_bucket_page_id) != nullptr);
   dir_page->Init();
   dir_page->SetPageId(directory_page_id_);
   dir_page->SetLocalDepth(0, 0);
   dir_page->SetBucketPageId(0, first_bucket_page_id);
-  buffer_pool_manager_->UnpinPage(first_bucket_page_id, false);
-  buffer_pool_manager_->UnpinPage(directory_page_id_, true);
+  assert(buffer_pool_manager_->UnpinPage(first_bucket_page_id, true));
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
 }
 
 /*****************************************************************************
@@ -127,8 +127,8 @@ bool HASH_TABLE_TYPE::Insert(Transaction *transaction, const KeyType &key, const
   }
   raw_bucket_page->WUnlatch();
   table_latch_.RUnlock();
-  buffer_pool_manager_->UnpinPage(directory_page_id_, false);
-  buffer_pool_manager_->UnpinPage(bucket_page_id, false);
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false));
+  assert(buffer_pool_manager_->UnpinPage(bucket_page_id, false));
   is_succeed = SplitInsert(transaction, key, value);
   return is_succeed;
 }
@@ -201,19 +201,19 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
       insert_page_id = old_bucket_page_id;
       raw_insert_page = raw_old_bucket_page;
       raw_new_bucket_page->WUnlatch();
-      buffer_pool_manager_->UnpinPage(new_bucket_page_id, true);
+      assert(buffer_pool_manager_->UnpinPage(new_bucket_page_id, true));
     } else {
       insert_page = new_bucket_page;
       insert_page_id = new_bucket_page_id;
       raw_insert_page = raw_new_bucket_page;
       raw_old_bucket_page->WUnlatch();
-      buffer_pool_manager_->UnpinPage(old_bucket_page_id, false);
+      assert(buffer_pool_manager_->UnpinPage(old_bucket_page_id, true));
     }
     if (!insert_page->IsFull()) {
       insert_succeed = insert_page->Insert(key, value, comparator_);
       insert_finished = true;
       raw_insert_page->WUnlatch();
-      buffer_pool_manager_->UnpinPage(insert_page_id, true);
+      assert(buffer_pool_manager_->UnpinPage(insert_page_id, true));
     } else {  // after split page, because of the imbalance, we need split the page again.
       old_bucket_page = insert_page;
       raw_old_bucket_page = raw_insert_page;
@@ -222,7 +222,7 @@ bool HASH_TABLE_TYPE::SplitInsert(Transaction *transaction, const KeyType &key, 
     }
   }
   table_latch_.WUnlock();
-  buffer_pool_manager_->UnpinPage(directory_page_id_, true);
+  assert(buffer_pool_manager_->UnpinPage(directory_page_id_, true));
   return insert_succeed;
 }
 
