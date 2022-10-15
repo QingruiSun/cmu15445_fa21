@@ -33,7 +33,6 @@ namespace bustub {
  */
 class HashTableDirectoryPage {
  public:
-
   /**
    * Init the global_depth_ to 1 when we create HashTableDirectoryPage
    *
@@ -88,12 +87,12 @@ class HashTableDirectoryPage {
    **/
   uint32_t GetSplitImageIndex(uint32_t bucket_idx);
 
- /**
-  * Gets the merge image of an index
-  * 
-  * @param bucket_idx the directory index for which to find the merge image
-  * @return the directory index of the merge image
-  **/
+  /**
+   * Gets the merge image of an index
+   *
+   * @param bucket_idx the directory index for which to find the merge image
+   * @return the directory index of the merge image
+   **/
   uint32_t GetMergeImageIndex(uint32_t bucket_idx);
   /**
    * GetGlobalDepthMask - returns a mask of global_depth 1's and the rest 0's.
