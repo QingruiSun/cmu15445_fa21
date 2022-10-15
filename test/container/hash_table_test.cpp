@@ -24,13 +24,13 @@ namespace bustub {
 // NOLINTNEXTLINE
 
 // NOLINTNEXTLINE
-TEST(HashTableTest, DISABLED_SampleTest) {
+TEST(HashTableTest, SampleTest) {
   auto *disk_manager = new DiskManager("test.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
   ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
 
   // insert a few values
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 100000; i++) {
     ht.Insert(nullptr, i, i);
     std::vector<int> res;
     ht.GetValue(nullptr, i, &res);
@@ -41,7 +41,7 @@ TEST(HashTableTest, DISABLED_SampleTest) {
   ht.VerifyIntegrity();
 
   // check if the inserted values are all there
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 100000; i++) {
     std::vector<int> res;
     ht.GetValue(nullptr, i, &res);
     EXPECT_EQ(1, res.size()) << "Failed to keep " << i << std::endl;
@@ -51,7 +51,7 @@ TEST(HashTableTest, DISABLED_SampleTest) {
   ht.VerifyIntegrity();
 
   // insert one more value for each key
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 100000; i++) {
     if (i == 0) {
       // duplicate values for the same key are not allowed
       EXPECT_FALSE(ht.Insert(nullptr, i, 2 * i));
@@ -80,11 +80,12 @@ TEST(HashTableTest, DISABLED_SampleTest) {
 
   // look for a key that does not exist
   std::vector<int> res;
-  ht.GetValue(nullptr, 20, &res);
+  ht.GetValue(nullptr, 200000, &res);
   EXPECT_EQ(0, res.size());
 
+  printf("before delete value\n");
   // delete some values
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 100000; i++) {
     EXPECT_TRUE(ht.Remove(nullptr, i, i));
     std::vector<int> res;
     ht.GetValue(nullptr, i, &res);
@@ -99,8 +100,9 @@ TEST(HashTableTest, DISABLED_SampleTest) {
 
   ht.VerifyIntegrity();
 
+  printf("before delete all value\n");
   // delete all values
-  for (int i = 0; i < 5; i++) {
+  for (int i = 0; i < 100000; i++) {
     if (i == 0) {
       // (0, 0) has been deleted
       EXPECT_FALSE(ht.Remove(nullptr, i, 2 * i));
@@ -117,4 +119,83 @@ TEST(HashTableTest, DISABLED_SampleTest) {
   delete bpm;
 }
 
+TEST(HashTableTest, DISABLED_ImbalanceInsert) {
+  auto *disk_manager = new DiskManager("test2.db");
+  auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
+  ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
+
+  // insert a few values
+  for (int i = 0; i < 1000; i++) {
+    ht.Insert(nullptr, 50, i);
+    std::vector<int> res;
+    ht.GetValue(nullptr, 50, &res);
+    EXPECT_EQ(i + 1, res.size()) << "Failed to insert " << i << std::endl;
+  }
+
+  ht.VerifyIntegrity();
+  for (int i = 0; i < 1000; ++i) {
+    EXPECT_TRUE(ht.Remove(nullptr, 50, i));
+  }
+  ht.VerifyIntegrity();
+  disk_manager->ShutDown();
+  remove("test2.db");
+  delete disk_manager;
+  delete bpm;
+}
+
+TEST(HashTableTest, MultiThread) {
+  auto *disk_manager = new DiskManager("test3.db");
+  auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
+  ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
+
+  std::thread t1([&] {
+    for (int i = 0; i < 10000; ++i) {
+      ht.Insert(nullptr, i, i);
+    }
+  });
+  std::thread t2([&] {
+    for (int i = 10000; i < 20000; ++i) {
+      ht.Insert(nullptr, i, i);
+    }
+  });
+  t1.join();
+  t2.join();
+  ht.VerifyIntegrity();
+  for (int i = 0; i < 10000; ++i) {
+    std::vector<int> res;
+    ht.GetValue(nullptr, i, &res);
+    EXPECT_EQ(1, res.size());
+  }
+  std::thread t3([&] {
+    for (int i = 0; i < 10000; ++i) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+  });
+  std::thread t4([&] {
+    for (int i = 10000; i < 15000; ++i) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+  });
+  t3.join();
+  t4.join();
+  ht.VerifyIntegrity();
+  for (int i = 15000; i < 20000; ++i) {
+    std::vector<int> res;
+    ht.GetValue(nullptr, i, &res);
+    EXPECT_EQ(1, res.size());
+  }
+  for (int i = 10000; i < 15000; ++i) {
+    std::vector<int> res;
+    ht.GetValue(nullptr, i, &res);
+    EXPECT_EQ(0, res.size());
+  }
+  for (int i = 15000; i < 20000; ++i) {
+    EXPECT_TRUE(ht.Remove(nullptr, i, i));
+  }
+  ht.VerifyIntegrity();
+  disk_manager->ShutDown();
+  remove("test3.db");
+  delete disk_manager;
+  delete bpm;
+}
 }  // namespace bustub
