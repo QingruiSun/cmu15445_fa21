@@ -240,7 +240,7 @@ bool HASH_TABLE_TYPE::Remove(Transaction *transaction, const KeyType &key, const
   raw_bucket_page->WLatch();
   auto *bucket_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_bucket_page->GetData());
   bool remove_succeed = bucket_page->Remove(key, value, comparator_);
-  if (bucket_page->IsEmpty() && dir_page->GetLocalDepth(bucket_index)) {
+  if (bucket_page->IsEmpty() && dir_page->GetGlobalDepth() && dir_page->GetLocalDepth(bucket_index)) {
     uint32_t merge_index = dir_page->GetMergeImageIndex(bucket_index);
     if (dir_page->GetLocalDepth(merge_index) == dir_page->GetLocalDepth(bucket_index)) {
       is_merge = true;
@@ -272,22 +272,33 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
   auto *raw_bucket_page = buffer_pool_manager_->FetchPage(bucket_page_id);
   raw_bucket_page->WLatch();
   auto *bucket_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_bucket_page->GetData());
-  uint32_t merge_index = dir_page->GetMergeImageIndex(bucket_index);
-  page_id_t merge_bucket_page_id = dir_page->GetBucketPageId(merge_index);
-  if (!bucket_page->IsEmpty() || !dir_page->GetLocalDepth(bucket_index) ||
-      dir_page->GetLocalDepth(bucket_index) != dir_page->GetLocalDepth(merge_index)) {
+  if (bucket_page->IsEmpty() || !dir_page->GetLocalDepth(bucket_index)) {
     raw_bucket_page->WUnlatch();
     table_latch_.WUnlock();
     buffer_pool_manager_->UnpinPage(bucket_page_id, false);
-    buffer_pool_manager_->UnpinPage(directory_page_id_, false);
+    buffer_pool_manager_->UnpinPage(directory_page_id_, true);
     return;
   }
+  uint32_t merge_index = dir_page->GetMergeImageIndex(bucket_index);
+  page_id_t merge_bucket_page_id = dir_page->GetBucketPageId(merge_index);
+  if (!bucket_page->IsEmpty() || !dir_page->GetGlobalDepth() || !dir_page->GetLocalDepth(bucket_index) ||
+      (dir_page->GetLocalDepth(bucket_index) != dir_page->GetLocalDepth(merge_index)) || (bucket_page_id == merge_bucket_page_id)) {
+    raw_bucket_page->WUnlatch();
+    table_latch_.WUnlock();
+    buffer_pool_manager_->UnpinPage(bucket_page_id, false);
+    buffer_pool_manager_->UnpinPage(directory_page_id_, true);
+    return;
+  }
+  dir_page->DecrLocalDepth(bucket_index);
+  dir_page->DecrLocalDepth(merge_index);
   for (uint32_t i = 0; i < dir_page->Size(); ++i) {
     if (dir_page->GetBucketPageId(i) == bucket_page_id) {
       dir_page->SetBucketPageId(i, merge_bucket_page_id);
-      dir_page->DecrLocalDepth(i);
+      dir_page->SetLocalDepth(i, dir_page->GetLocalDepth(merge_index));
     } else if (dir_page->GetBucketPageId(i) == merge_bucket_page_id) {
-      dir_page->DecrLocalDepth(i);
+      if (i != merge_index) {
+        dir_page->DecrLocalDepth(i);
+      }
     }
   }
   if (dir_page->CanShrink()) {
@@ -298,6 +309,7 @@ void HASH_TABLE_TYPE::Merge(Transaction *transaction, const KeyType &key, const 
   buffer_pool_manager_->UnpinPage(bucket_page_id, false);
   buffer_pool_manager_->DeletePage(bucket_page_id);
   buffer_pool_manager_->UnpinPage(directory_page_id_, true);
+  Merge(transaction ,key, value);
 }
 
 /*****************************************************************************
