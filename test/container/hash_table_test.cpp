@@ -143,6 +143,214 @@ TEST(HashTableTest, DISABLED_ImbalanceInsert) {
   delete bpm;
 }
 
+TEST(HashTableTest, ConcurrentInsertRemoveTest) {
+  auto *disk_manager = new DiskManager("test.db");
+  auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
+  ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
+
+  // HashTableDirectoryPage *htdp = ht.FetchDirectoryPage();
+
+  for (int i = 300000; i < 400000; i++) {
+    EXPECT_TRUE(ht.Insert(nullptr, i, i));
+  }
+
+  std::thread t1([&ht]() {
+    // insert many values
+    // for (int i = 0; i < 100000; i++) {
+    //   EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    // }
+    for (int i = 0; i < 100000; i++) {
+      EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    }
+
+    for (int i = 0; i < 100000; i++) {
+      std::vector<int> res;
+      ht.GetValue(nullptr, i, &res);
+      if (res.size() != 1) {
+        LOG_DEBUG("get value fail, i %d", i);
+        return;
+      }
+      EXPECT_EQ(i, res[0]);
+    }
+
+    for (int i = 0; i < 100000; i++) {
+      std::vector<int> res;
+      ht.GetValue(nullptr, i, &res);
+      if (res.size() != 1) {
+        LOG_DEBUG("get value fail, i %d", i);
+        return;
+      }
+      EXPECT_EQ(i, res[0]);
+    }
+
+    for (int i = 0; i < 100000; i++) {
+      std::vector<int> res;
+      ht.GetValue(nullptr, i, &res);
+      if (res.size() != 1) {
+        LOG_DEBUG("get value fail, i %d", i);
+        return;
+      }
+      EXPECT_EQ(i, res[0]);
+    }
+
+    for (int i = 0; i < 100000; i++) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+
+    // for (int i = 0; i < 100000; i++) {
+    //   EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    // }
+  });
+
+  std::thread t5([&ht]() {
+    // insert many values
+    // for (int i = 0; i < 100000; i++) {
+    //   EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    // }
+
+    for (int i = 300000; i < 400000; i++) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+
+    for (int i = 300000; i < 400000; i++) {
+      EXPECT_FALSE(ht.Remove(nullptr, i, i));
+    }
+
+    // std::thread t2([&ht]() {
+    //   // insert many values
+    //   for (int i = 100000; i < 200000; i++) {
+    //     EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    //   }
+
+    //   // for (int i = 50000; i < 100000; i++) {
+    //   //   std::vector<int> res;
+    //   //   ht.GetValue(nullptr, i, &res);
+    //   //   if (res.size() != 1) {
+    //   //     LOG_DEBUG("get value fail, i %d", i);
+    //   //     return;
+    //   //   }
+    //   //   EXPECT_EQ(i, res[0]);
+    //   // }
+
+    //   for (int i = 100000; i < 200000; i++) {
+    //     EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    //   }
+  });
+
+  std::thread t3([&ht]() {
+    // insert many values
+    for (int i = 100000; i < 200000; i++) {
+      EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    }
+
+    // for (int i = 200000; i < 250000; i++) {
+    //   std::vector<int> res;
+    //   ht.GetValue(nullptr, i, &res);
+    //   if (res.size() != 1) {
+    //     LOG_DEBUG("get value fail, i %d", i);
+    //     return;
+    //   }
+    //   EXPECT_EQ(i, res[0]);
+    // }
+
+    for (int i = 100000; i < 200000; i++) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+    // for (int i = 150000; i < 250000; i++) {
+    //   EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    // }
+  });
+
+  // std::thread t4([&ht]() {
+  //   // insert many values
+  //   for (int i = 90000; i < 120000; i++) {
+  //     EXPECT_TRUE(ht.Insert(nullptr, i, i));
+  //   }
+
+  //   for (int i = 90000; i < 120000; i++) {
+  //     std::vector<int> res;
+  //     ht.GetValue(nullptr, i, &res);
+  //     if (res.size() != 1) {
+  //       LOG_DEBUG("get value fail, i %d", i);
+  //       return;
+  //     }
+  //     EXPECT_EQ(i, res[0]);
+  //   }
+  //   for (int i = 90000; i < 120000; i++) {
+  //     EXPECT_TRUE(ht.Remove(nullptr, i, i));
+  //   }
+  // });
+
+  t1.join();
+  // t2.join();
+  t3.join();
+  t5.join();
+  // t4.join();
+
+  // for (int i = 10000; i < 80000; i++) {
+  //   EXPECT_TRUE(ht.Remove(nullptr, i, i));
+  // }
+
+  ht.VerifyIntegrity();
+  disk_manager->ShutDown();
+  remove("test.db");
+  delete disk_manager;
+  delete bpm;
+}
+
+TEST(HashTableTest, ConcurrentInsertConcurrentRemoveTest) {
+  auto *disk_manager = new DiskManager("test.db");
+  auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
+  ExtendibleHashTable<int, int, IntComparator> ht("blah", bpm, IntComparator(), HashFunction<int>());
+
+  // HashTableDirectoryPage *htdp = ht.FetchDirectoryPage();
+
+  std::thread t1([&ht]() {
+    // insert many values
+    for (int i = 0; i < 100000; i++) {
+      EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    }
+
+    for (int i = 0; i < 100000; i++) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+  });
+
+  std::thread t2([&ht]() {
+    // insert many values
+    for (int i = 100000; i < 200000; i++) {
+      EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    }
+
+    for (int i = 100000; i < 200000; i++) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+  });
+
+  std::thread t3([&ht]() {
+    // insert many values
+    for (int i = 200000; i < 300000; i++) {
+      EXPECT_TRUE(ht.Insert(nullptr, i, i));
+    }
+
+    for (int i = 200000; i < 300000; i++) {
+      EXPECT_TRUE(ht.Remove(nullptr, i, i));
+    }
+  });
+
+  t1.join();
+  t2.join();
+  t3.join();
+
+  ht.VerifyIntegrity();
+
+  disk_manager->ShutDown();
+  remove("test.db");
+  delete disk_manager;
+  delete bpm;
+}
+
+
 TEST(HashTableTest, MultiThread) {
   auto *disk_manager = new DiskManager("test3.db");
   auto *bpm = new BufferPoolManagerInstance(50, disk_manager);
