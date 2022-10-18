@@ -38,17 +38,6 @@ HASH_TABLE_TYPE::ExtendibleHashTable(const std::string &name, BufferPoolManager 
                                      const KeyComparator &comparator, HashFunction<KeyType> hash_fn)
     : buffer_pool_manager_(buffer_pool_manager), comparator_(comparator), hash_fn_(std::move(hash_fn)) {
   //  implement me!
-  std::ifstream aa;
-  aa.open("/autograder/bustub/test/container/grading_hash_table_scale_test.cpp");
-  std::vector<std::string> tt;
-  std::string test;
-  while (getline(aa, test)) {
-    tt.push_back(test);
-  }
-  for (const auto &item : tt) {
-    std::cout << item << std::endl;
-  }
-  aa.close();
   auto page = buffer_pool_manager_->NewPage(&directory_page_id_);
   auto dir_page = reinterpret_cast<HashTableDirectoryPage *>(page->GetData());
   page_id_t first_bucket_page_id;
@@ -355,6 +344,17 @@ template <typename KeyType, typename ValueType, typename KeyComparator>
 void HASH_TABLE_TYPE::TestInterface() {
   HashTableDirectoryPage *dir_page = FetchDirectoryPage();
   dir_page->VerifyIntegrity();
+  uint32_t num_readable = 0;
+  for (uint32_t i = 0; i < dir_page->Size(); ++i) {
+    page_id_t page_id = dir_page->GetBucketPageId(i);
+    auto raw_bucket_page = buffer_pool_manager_->FetchPage(page_id);
+    auto bucket_page = reinterpret_cast<HASH_TABLE_BUCKET_TYPE *>(raw_bucket_page->GetData());
+    bool is_empty = bucket_page->IsEmpty();
+    LOG_DEBUG("page id %u, is empty %d", page_id, is_empty);
+    num_readable += bucket_page->NumReadable();
+    buffer_pool_manager_->UnpinPage(page_id, false);
+  }
+  LOG_DEBUG("num readable %u", num_readable);
   assert(buffer_pool_manager_->UnpinPage(directory_page_id_, false, nullptr));
 }
 /*****************************************************************************
