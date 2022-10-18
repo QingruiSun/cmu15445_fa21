@@ -34,6 +34,7 @@ namespace bustub {
 template <typename KeyType, typename ValueType, typename KeyComparator>
 class ExtendibleHashTable {
  public:
+  void TestInterface();
   /**
    * Creates a new ExtendibleHashTable.
    *
