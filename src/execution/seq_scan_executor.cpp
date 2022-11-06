@@ -47,7 +47,7 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
     vals.emplace_back(column.GetExpr()->Evaluate(&(*table_iterator_), &table_info_->schema_));
   }
   *tuple = Tuple(vals, plan_->OutputSchema());
-  *rid = table_iterator_.GetTupleRid();
+  *rid = (*table_iterator_).GetRid();
   ++table_iterator_;
   return true;
 }
