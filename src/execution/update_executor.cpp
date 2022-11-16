@@ -9,7 +9,9 @@
 // Copyright (c) 2015-2021, Carnegie Mellon University Database Group
 //
 //===----------------------------------------------------------------------===//
-#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "execution/executors/update_executor.h"
 

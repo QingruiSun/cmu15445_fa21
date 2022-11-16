@@ -10,6 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "execution/executors/nested_loop_join_executor.h"
 
 namespace bustub {
@@ -35,6 +39,9 @@ void NestedLoopJoinExecutor::Init() {
 bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
   Tuple right_tuple;
   RID right_rid;
+  if (!left_remain_) {
+    return false;
+  }
   while (true) {
     if (!right_executor_->Next(&right_tuple, &right_rid)) {
       right_executor_->Init();
@@ -42,7 +49,9 @@ bool NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) {
       if (!left_remain_) {
         return false;
       }
-      right_executor_->Next(&right_tuple, &right_rid);
+      if (!right_executor_->Next(&right_tuple, &right_rid)) {
+        return false;
+      }
     }
     if (predicate_->EvaluateJoin(&left_tuple_, left_schema_, &right_tuple, right_schema_).GetAs<bool>()) {
       std::vector<Value> vals;

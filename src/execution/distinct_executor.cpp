@@ -10,6 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <string>
+#include <utility>
+
 #include "execution/executors/distinct_executor.h"
 
 namespace bustub {
@@ -75,8 +78,10 @@ void DistinctExecutor::Init() {
   }
   ht_iterator_ = ht_.begin();
   ht_end_ = ht_.end();
-  tmp_iterator_ = ht_iterator_->second.begin();
-  tmp_end_ = ht_iterator_->second.end();
+  if (ht_iterator_ != ht_end_) {  // hash table is not empty
+    tmp_iterator_ = ht_iterator_->second.begin();
+    tmp_end_ = ht_iterator_->second.end();
+  }
 }
 
 bool DistinctExecutor::Next(Tuple *tuple, RID *rid) {
