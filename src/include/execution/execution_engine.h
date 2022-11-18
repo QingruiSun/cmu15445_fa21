@@ -66,8 +66,18 @@ class ExecutionEngine {
           result_set->push_back(tuple);
         }
       }
+    } catch (TransactionAbortException &e) {
+      txn_mgr_->Abort(txn);
+      LOG_DEBUG("abort exception");
+      return false;
     } catch (Exception &e) {
-      // TODO(student): handle exceptions
+      txn_mgr_->Abort(txn);
+      return false;
+    }
+
+    if (txn->GetState() == TransactionState::ABORTED) {
+      txn_mgr_->Abort(txn);
+      return false;
     }
 
     return true;

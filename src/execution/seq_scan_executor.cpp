@@ -21,7 +21,9 @@ SeqScanExecutor::SeqScanExecutor(ExecutorContext *exec_ctx, const SeqScanPlanNod
       table_info_(exec_ctx_->GetCatalog()->GetTable(table_oid_)),
       table_heap_(table_info_->table_.get()),
       table_iterator_(table_heap_->Begin(exec_ctx_->GetTransaction())),
-      table_iterator_end_(table_heap_->End()) {}
+      table_iterator_end_(table_heap_->End()),
+      lock_mgr_(exec_ctx_->GetLockManager()),
+      txn_(exec_ctx_->GetTransaction()) {}
 
 void SeqScanExecutor::Init() {
   table_iterator_ = table_heap_->Begin(exec_ctx_->GetTransaction());
@@ -48,6 +50,17 @@ bool SeqScanExecutor::Next(Tuple *tuple, RID *rid) {
   }
   *tuple = Tuple(vals, plan_->OutputSchema());
   *rid = (*table_iterator_).GetRid();
+  if ((txn_->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) ||
+      (txn_->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ)) {
+    if (!lock_mgr_->LockShared(txn_, *rid)) {
+      return false;
+    }
+  }
+  if (txn_->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
+    if (!lock_mgr_->Unlock(txn_, *rid)) {
+      return false;
+    }
+  }
   ++table_iterator_;
   return true;
 }

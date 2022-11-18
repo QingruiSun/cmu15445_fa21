@@ -39,6 +39,9 @@ class LockManager {
    public:
     LockRequest(txn_id_t txn_id, LockMode lock_mode) : txn_id_(txn_id), lock_mode_(lock_mode), granted_(false) {}
 
+    bool operator==(const LockRequest &lr) {
+      return (txn_id_ == lr.txn_id_) && (lock_mode_ == lr.lock_mode_) && (granted_ == lr.granted_);
+    }
     txn_id_t txn_id_;
     LockMode lock_mode_;
     bool granted_;
@@ -103,6 +106,8 @@ class LockManager {
    * @return true if the unlock is successful, false otherwise
    */
   bool Unlock(Transaction *txn, const RID &rid);
+
+  void ImplicityAbort(Transaction *txn, AbortReason abort_reason);
 
  private:
   std::mutex latch_;

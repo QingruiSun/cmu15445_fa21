@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "concurrency/lock_manager.h"
+#include "concurrency/transaction.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/insert_plan.h"
@@ -66,6 +68,8 @@ class InsertExecutor : public AbstractExecutor {
   std::vector<IndexInfo *> indexes_;
   uint32_t raw_value_size_;
   uint32_t raw_insert_index_{0};
+  LockManager *lock_mgr_;
+  Transaction *txn_;
 };
 
 }  // namespace bustub

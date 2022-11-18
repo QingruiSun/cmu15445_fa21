@@ -79,9 +79,15 @@ class TableWriteRecord {
  */
 class IndexWriteRecord {
  public:
-  IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, index_oid_t index_oid,
-                   Catalog *catalog)
-      : rid_(rid), table_oid_(table_oid), wtype_(wtype), tuple_(tuple), index_oid_(index_oid), catalog_(catalog) {}
+  IndexWriteRecord(RID rid, table_oid_t table_oid, WType wtype, const Tuple &tuple, const Tuple &old_tuple,
+                   index_oid_t index_oid, Catalog *catalog)
+      : rid_(rid),
+        table_oid_(table_oid),
+        wtype_(wtype),
+        tuple_(tuple),
+        old_tuple_(old_tuple),
+        index_oid_(index_oid),
+        catalog_(catalog) {}
 
   /** The rid is the value stored in the index. */
   RID rid_;
@@ -191,6 +197,10 @@ class Transaction {
    */
   inline void AppendTableWriteRecord(const TableWriteRecord &write_record) {
     table_write_set_->push_back(write_record);
+  }
+
+  inline void AppendIndexWriteRecord(const IndexWriteRecord &index_record) {
+    index_write_set_->push_back(index_record);
   }
 
   /**

@@ -23,6 +23,8 @@ UpdateExecutor::UpdateExecutor(ExecutorContext *exec_ctx, const UpdatePlanNode *
   exec_ctx_ = exec_ctx;
   plan_ = plan;
   child_executor_ = std::move(child_executor);
+  txn_ = exec_ctx_->GetTransaction();
+  lock_mgr_ = exec_ctx_->GetLockManager();
 }
 
 void UpdateExecutor::Init() {
@@ -40,6 +42,15 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
   }
   RID update_rid = src_rid;
   Tuple update_tuple = GenerateUpdatedTuple(src_tuple);
+  if (txn_->IsSharedLocked(update_rid)) {
+    if (!lock_mgr_->LockUpgrade(txn_, update_rid)) {
+      return false;
+    }
+  } else {
+    if (!lock_mgr_->LockExclusive(txn_, update_rid)) {
+      return false;
+    }
+  }
   bool is_update_succeed = table_info_->table_->UpdateTuple(update_tuple, src_rid, exec_ctx_->GetTransaction());
   if (!is_update_succeed) {
     table_info_->table_->MarkDelete(src_rid, exec_ctx_->GetTransaction());
@@ -51,6 +62,9 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     index_info->index_->DeleteEntry(old_key_tuple, src_rid, exec_ctx_->GetTransaction());
     Tuple update_key_tuple = update_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs);
     index_info->index_->InsertEntry(update_key_tuple, update_rid, exec_ctx_->GetTransaction());
+    IndexWriteRecord wr(*rid, table_info_->oid_, WType::UPDATE, update_tuple, src_tuple, index_info->index_oid_,
+                        exec_ctx_->GetCatalog());
+    txn_->AppendIndexWriteRecord(wr);
   }
   return true;
 }

@@ -55,6 +55,8 @@ class TableIterator {
     return *this;
   }
 
+  RID GetTupleRid() { return tuple_->rid_; }
+
  private:
   TableHeap *table_heap_;
   Tuple *tuple_;

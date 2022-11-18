@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "concurrency/lock_manager.h"
+#include "concurrency/transaction.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/delete_plan.h"
@@ -63,5 +65,7 @@ class DeleteExecutor : public AbstractExecutor {
   Catalog *catalog_;
   TableInfo *table_info_;
   std::vector<IndexInfo *> indexes_;
+  LockManager *lock_mgr_;
+  Transaction *txn_;
 };
 }  // namespace bustub

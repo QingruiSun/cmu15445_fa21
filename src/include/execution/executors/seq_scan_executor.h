@@ -14,6 +14,8 @@
 
 #include <vector>
 
+#include "concurrency/lock_manager.h"
+#include "concurrency/transaction.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/seq_scan_plan.h"
@@ -55,5 +57,7 @@ class SeqScanExecutor : public AbstractExecutor {
   TableHeap *table_heap_;
   TableIterator table_iterator_;
   TableIterator table_iterator_end_;
+  LockManager *lock_mgr_;
+  Transaction *txn_;
 };
 }  // namespace bustub

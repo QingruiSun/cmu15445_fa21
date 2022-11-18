@@ -16,6 +16,8 @@
 #include <utility>
 #include <vector>
 
+#include "concurrency/lock_manager.h"
+#include "concurrency/transaction.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
 #include "execution/plans/update_plan.h"
@@ -74,5 +76,7 @@ class UpdateExecutor : public AbstractExecutor {
   std::unique_ptr<AbstractExecutor> child_executor_;
   Catalog *catalog_;
   std::vector<IndexInfo *> indexes_;
+  LockManager *lock_mgr_;
+  Transaction *txn_;
 };
 }  // namespace bustub
