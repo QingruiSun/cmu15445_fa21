@@ -56,7 +56,7 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     index_info->index_->DeleteEntry(key_tuple, delete_rid, exec_ctx_->GetTransaction());
     IndexWriteRecord wr(*rid, table_info_->oid_, WType::DELETE, delete_tuple, index_info->index_oid_,
                         exec_ctx_->GetCatalog());
-    txn_->AppendIndexWriteRecord(wr);
+    txn_->GetIndexWriteSet()->push_back(wr);
   }
   return true;
 }

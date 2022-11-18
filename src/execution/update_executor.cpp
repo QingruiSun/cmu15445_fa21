@@ -65,7 +65,7 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     IndexWriteRecord wr(*rid, table_info_->oid_, WType::UPDATE, update_tuple, index_info->index_oid_,
                         exec_ctx_->GetCatalog());
     wr.old_tuple_ = src_tuple;
-    txn_->AppendIndexWriteRecord(wr);
+    txn_->GetIndexWriteSet()->push_back(wr);
   }
   return true;
 }
