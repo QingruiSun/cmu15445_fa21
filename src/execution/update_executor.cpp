@@ -62,8 +62,9 @@ bool UpdateExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     index_info->index_->DeleteEntry(old_key_tuple, src_rid, exec_ctx_->GetTransaction());
     Tuple update_key_tuple = update_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs);
     index_info->index_->InsertEntry(update_key_tuple, update_rid, exec_ctx_->GetTransaction());
-    IndexWriteRecord wr(*rid, table_info_->oid_, WType::UPDATE, update_tuple, src_tuple, index_info->index_oid_,
+    IndexWriteRecord wr(*rid, table_info_->oid_, WType::UPDATE, update_tuple, index_info->index_oid_,
                         exec_ctx_->GetCatalog());
+    wr.old_tuple_ = src_tuple;
     txn_->AppendIndexWriteRecord(wr);
   }
   return true;

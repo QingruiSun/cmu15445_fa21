@@ -54,7 +54,7 @@ bool DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) {
     std::vector<uint32_t> key_attrs = index_info->index_->GetKeyAttrs();
     Tuple key_tuple = delete_tuple.KeyFromTuple(table_info_->schema_, index_info->key_schema_, key_attrs);
     index_info->index_->DeleteEntry(key_tuple, delete_rid, exec_ctx_->GetTransaction());
-    IndexWriteRecord wr(*rid, table_info_->oid_, WType::DELETE, delete_tuple, delete_tuple, index_info->index_oid_,
+    IndexWriteRecord wr(*rid, table_info_->oid_, WType::DELETE, delete_tuple, index_info->index_oid_,
                         exec_ctx_->GetCatalog());
     txn_->AppendIndexWriteRecord(wr);
   }
